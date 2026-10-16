@@ -230,24 +230,69 @@ the full path into the file name box. Rename the entry, run it from Gaming
 Mode, wait for it to return, then stream. It returns as soon as the host
 answers, so a quick return means the PC is up.
 
-Steam's artwork for a non-Steam entry is read from
+Steam's artwork for a non-Steam entry lives in
 `~/.local/share/Steam/userdata/<account>/config/grid/`, named by the
-entry's app id (readable from `config/shortcuts.vdf`): `<id>p.png` is the
-600 by 900 portrait tile, `<id>.png` the 920 by 430 wide capsule,
-`<id>_hero.png` the 1920 by 620 banner and `<id>_logo.png` a transparent
-logo over it. The icon is set in the entry's Properties and the dialog does
-not redraw it until Steam restarts, even though it is saved. ImageMagick
-makes a matching set from nothing; the font is whatever your machine has:
+entry's app id. Four files cover every view:
 
-```
-F=/System/Library/Fonts/HelveticaNeue.ttc   # or any .ttf
-BG='#1b2838'; FG='#66c0f4'; TX='#c7d5e0'
-magick -size 512x512 xc:$BG -fill none -stroke $FG -strokewidth 28 -draw "arc 136,116 376,356 -60 240" -draw "line 256,96 256,236" -stroke none -fill $TX -font "$F" -pointsize 54 -gravity south -annotate +0+58 "WAKE PC" icon.png
-magick -size 600x900 xc:$BG -fill none -stroke $FG -strokewidth 34 -draw "arc 150,250 450,550 -60 240" -draw "line 300,225 300,400" -stroke none -fill $TX -font "$F" -pointsize 64 -gravity south -annotate +0+150 "WAKE" -annotate +0+70 "PC" ${ID}p.png
-magick -size 920x430 xc:$BG -fill none -stroke $FG -strokewidth 26 -draw "arc 110,95 350,335 -60 240" -draw "line 230,75 230,215" -stroke none -fill $TX -font "$F" -pointsize 86 -gravity west -annotate +420+0 "WAKE\nPC" ${ID}.png
-magick -size 1920x620 xc:$BG -fill none -stroke '#2a475e' -strokewidth 40 -draw "arc 1380,110 1780,510 -60 240" -draw "line 1580,80 1580,310" ${ID}_hero.png
-magick -size 800x300 xc:none -fill $TX -font "$F" -pointsize 110 -gravity center -annotate +0+0 "WAKE PC" ${ID}_logo.png
-```
+| File | Size | Where it shows |
+| --- | --- | --- |
+| `<id>p.png` | 600 by 900 | the library grid tile |
+| `<id>.png` | 920 by 430 | the recent-games row and other wide views |
+| `<id>_hero.png` | 1920 by 620 | the banner across the top of the entry's page |
+| `<id>_logo.png` | 800 by 300, transparent | the logo drawn over the hero |
+
+The small icon is separate: set it in the entry's Properties, where the
+dialog does not redraw it until Steam restarts, even though it is saved.
+
+What the set looks like, in Steam's own blue and grey:
+
+![icon](assets/wake-pc/icon.png)
+
+![portrait tile](assets/wake-pc/portrait.png)
+
+![wide capsule](assets/wake-pc/wide.png)
+
+![hero with the logo over it](assets/wake-pc/hero-with-logo.png)
+
+To make your own set with ImageMagick:
+
+1. **Find the entry's id.** It is stored in `config/shortcuts.vdf`, a
+   binary file; this prints the name and id of every non-Steam entry:
+
+   ```
+   python3 - ~/.local/share/Steam/userdata/<account>/config/shortcuts.vdf <<'PY'
+   import sys, re
+   b = open(sys.argv[1], "rb").read()
+   for e in b.split(b"\x02appid\x00")[1:]:
+       f = dict(re.findall(rb"\x01([A-Za-z ]+)\x00([^\x00]*)\x00", e))
+       print(int.from_bytes(e[:4], "little"), f.get(b"AppName", b"").decode())
+   PY
+   ```
+
+2. **Render the files**, with the id and a font path of your own. Any
+   TrueType or OpenType font works; the one below is a macOS path.
+
+   ```
+   ID=2456176968
+   F=/System/Library/Fonts/HelveticaNeue.ttc
+   BG='#1b2838'; FG='#66c0f4'; TX='#c7d5e0'
+   magick -size 512x512  xc:$BG -fill none -stroke $FG -strokewidth 28 -draw "arc 136,116 376,356 -60 240" -draw "line 256,96 256,236"   -stroke none -fill $TX -font "$F" -pointsize 54  -gravity south -annotate +0+58  "WAKE PC" icon.png
+   magick -size 600x900  xc:$BG -fill none -stroke $FG -strokewidth 34 -draw "arc 150,250 450,550 -60 240" -draw "line 300,225 300,400"  -stroke none -fill $TX -font "$F" -pointsize 64  -gravity south -annotate +0+150 "WAKE" -annotate +0+70 "PC" ${ID}p.png
+   magick -size 920x430  xc:$BG -fill none -stroke $FG -strokewidth 26 -draw "arc 110,95 350,335 -60 240"  -draw "line 230,75 230,215"   -stroke none -fill $TX -font "$F" -pointsize 86  -gravity west  -annotate +420+0 "WAKE\nPC" ${ID}.png
+   magick -size 1920x620 xc:$BG -fill none -stroke '#2a475e' -strokewidth 40 -draw "arc 1380,110 1780,510 -60 240" -draw "line 1580,80 1580,310" ${ID}_hero.png
+   magick -size 800x300  xc:none -fill $TX -font "$F" -pointsize 110 -gravity center -annotate +0+0 "WAKE PC" ${ID}_logo.png
+   ```
+
+   The `arc` is the ring of the power symbol with a gap at the top, the
+   `line` is the bar through the gap. Change the text, the colours or the
+   font and nothing else needs touching.
+
+3. **Put them in place and restart Steam.** Copy the four `${ID}` files
+   into the `grid` folder (create it if it is missing; `scp -r` from
+   another machine is fine), set `icon.png` in the entry's Properties, then
+   restart Steam, which from Gaming Mode is a switch to Desktop and back or
+   the Power menu's Restart Steam. The tile and banner appear on the next
+   library view.
 
 ## Verify
 
