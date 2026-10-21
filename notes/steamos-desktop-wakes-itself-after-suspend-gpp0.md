@@ -212,7 +212,9 @@ library entry, so the wake is one:
 ```
 #!/bin/bash
 # ~/.local/bin/wake-pc.sh on the SteamOS client
-MAC=aa:bb:cc:dd:ee:ff; IP=192.0.2.10
+MAC=aa:bb:cc:dd:ee:ff; IP=192.0.2.10; PORT=27036
+ready() { timeout 1 bash -c "</dev/tcp/$IP/$PORT" 2>/dev/null; }
+ready && exit 0
 python3 - "$MAC" <<'PY'
 import socket, sys
 mac = bytes.fromhex(sys.argv[1].replace(":", "")); pkt = b"\xff" * 6 + mac * 16
@@ -220,15 +222,21 @@ s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 for port in (9, 7): s.sendto(pkt, ("255.255.255.255", port))
 PY
-for i in $(seq 1 12); do sleep 5; ping -c1 -W1 $IP >/dev/null 2>&1 && exit 0; done
+start=$SECONDS
+while [ $((SECONDS - start)) -lt 90 ]; do sleep 2; ready && exit 0; done
 exit 1
 ```
+
+The wait is on TCP 27036, the port Steam's Remote Play host listens on,
+not on ping. The network comes back a moment before Steam does (one second
+apart on a resume from suspend, longer on a cold boot), and a stream started
+in that gap fails. `/dev/tcp` is bash's own, so nothing needs installing.
 
 In Desktop mode: Steam, Games, Add a Non-Steam Game, Browse. Folders
 starting with a dot are hidden in the picker; Alt+. shows them, or type
 the full path into the file name box. Rename the entry, run it from Gaming
-Mode, wait for it to return, then stream. It returns as soon as the host
-answers, so a quick return means the PC is up.
+Mode, wait for it to return, then stream. It returns as soon as the host's
+Steam answers, so a quick return means the PC is ready to stream from.
 
 Steam's artwork for a non-Steam entry lives in
 `~/.local/share/Steam/userdata/<account>/config/grid/`, named by the
